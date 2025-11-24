@@ -37,6 +37,7 @@ yarn-error.log*
 
 # Blockchain data
 backend/src/blockchain.json
+backend/src/data/
 
 # Frontend
 .next/

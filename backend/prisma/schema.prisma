@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Issuer {
+  id                String             @id @default(uuid())
+  legalName         String
+  domain            String             @unique
+  contactEmail      String             @unique
+  status            String             @default("PENDING")
+  certificates      Certificate[]
+  issuerKeys        IssuerKey[]
+  authUsers         Auth[]
+  certificateEvents CertificateEvent[] @relation("IssuerToCertificateEvents")
+  verificationLogs  VerificationLog[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+}
+
+model IssuerKey {
+  id        String    @id @default(uuid())
+  issuer    Issuer    @relation(fields: [issuerId], references: [id])
+  issuerId  String
+  publicKey String
+  keyType   String    @default("ed25519")
+  rotated   Boolean   @default(false)
+  reason    String?
+  createdAt DateTime  @default(now())
+
+  certificates Certificate[]
+}
+
+model Auth {
+  id           String    @id @default(uuid())
+  issuer       Issuer    @relation(fields: [issuerId], references: [id])
+  issuerId     String
+  email        String
+  passwordHash String
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@unique([issuerId, email])
+}
+
+model Certificate {
+  id               String             @id @default(uuid())
+  issuer           Issuer             @relation(fields: [issuerId], references: [id])
+  issuerId         String
+  issuerKey        IssuerKey?         @relation(fields: [issuerKeyId], references: [id])
+  issuerKeyId      String?
+  certificateId    String
+  certificateJson  Json               @map("certificate_json")
+  canonicalHash    String             @map("canonical_hash")
+  pdfHash          String?            @map("pdf_hash")
+  signature        String
+  status           String             @default("VALID")
+  issuedAt         DateTime           @map("issued_at")
+  revokedAt        DateTime?          @map("revoked_at")
+  revocationReason String?            @map("revocation_reason")
+  verificationUrl  String?            @map("verification_url")
+  events           CertificateEvent[]
+  verificationLogs VerificationLog[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  deletedAt        DateTime?
+
+  @@unique([issuerId, certificateId])
+}
+
+model CertificateEvent {
+  id            String      @id @default(uuid())
+  certificate   Certificate @relation(fields: [certificateId], references: [id])
+  certificateId String
+  issuer        Issuer      @relation("IssuerToCertificateEvents", fields: [issuerId], references: [id])
+  issuerId      String
+  eventType     String      @map("event_type")
+  payload       Json
+  prevEventHash String?     @map("prev_event_hash")
+  eventHash     String      @map("event_hash")
+  occurredAt    DateTime    @default(now()) @map("occurred_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+}
+
+model VerificationLog {
+  id              BigInt       @id @default(autoincrement())
+  issuer          Issuer?      @relation(fields: [issuerId], references: [id])
+  issuerId        String?
+  certificate     Certificate? @relation(fields: [certificateId], references: [id])
+  certificateId   String?
+  verdict         String
+  reason          String?
+  requestMetadata Json?        @map("request_metadata")
+  createdAt       DateTime     @default(now()) @map("created_at")
+}
