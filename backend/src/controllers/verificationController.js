@@ -26,7 +26,7 @@ const mailer = hasSmtpCreds
 const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 
 const sendOtpEmail = async (email, otp, companyName) => {
-  const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+  const from = process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@blockcertify.local';
   await mailer.sendMail({
     from,
     to: email,
