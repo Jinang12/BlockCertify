@@ -1,13 +1,23 @@
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const SibApiV3Sdk = require('sib-api-v3-sdk');
 const argon2 = require('argon2');
 const { generateCompanyKeypair, upsertCompany } = require('../services/companyService');
 
 const otpStore = new Map();
 
+const brevoApiKey = process.env.BREVO_API_KEY || process.env.BREVO_API_V3_KEY;
+let brevoClient = null;
+
+if (brevoApiKey) {
+  const defaultClient = SibApiV3Sdk.ApiClient.instance;
+  defaultClient.authentications['api-key'].apiKey = brevoApiKey;
+  brevoClient = new SibApiV3Sdk.TransactionalEmailsApi();
+}
+
 const hasSmtpCreds = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS;
 
-const mailer = hasSmtpCreds
+const fallbackMailer = hasSmtpCreds
   ? nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT) || 587,
@@ -26,13 +36,33 @@ const mailer = hasSmtpCreds
 const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 
 const sendOtpEmail = async (email, otp, companyName) => {
-  const from = process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@blockcertify.local';
-  await mailer.sendMail({
-    from,
+  const senderEmail = process.env.MAIL_FROM || 'no-reply@blockcertify.local';
+  const senderName = process.env.MAIL_FROM_NAME || 'BlockCertify';
+  const subject = 'Verify your organization – BlockCertify';
+  const textContent = `Hi${companyName ? ` ${companyName}` : ''}, your verification code is ${otp}. It expires in 10 minutes.`;
+  const htmlContent = `<p>Hi${companyName ? ` ${companyName}` : ''},</p><p>Your BlockCertify verification code is <strong>${otp}</strong>.</p><p>This code expires in 10 minutes.</p>`;
+
+  if (brevoClient) {
+    try {
+      await brevoClient.sendTransacEmail({
+        sender: { name: senderName, email: senderEmail },
+        to: [{ email, name: companyName || email }],
+        subject,
+        textContent,
+        htmlContent,
+      });
+      return;
+    } catch (error) {
+      console.error('Brevo transactional email failed:', error?.response?.body || error);
+    }
+  }
+
+  await fallbackMailer.sendMail({
+    from: `${senderName} <${senderEmail}>`,
     to: email,
-    subject: 'Verify your organization – BlockCertify',
-    text: `Hi${companyName ? ` ${companyName}` : ''}, your verification code is ${otp}. It expires in 10 minutes.`,
-    html: `<p>Hi${companyName ? ` ${companyName}` : ''},</p><p>Your BlockCertify verification code is <strong>${otp}</strong>.</p><p>This code expires in 10 minutes.</p>`,
+    subject,
+    text: textContent,
+    html: htmlContent,
   });
 };
 
@@ -64,9 +94,10 @@ exports.sendOtp = async (req, res) => {
 
     await sendOtpEmail(officialEmail, otp, companyName);
 
-    if (!hasSmtpCreds) {
-      const preview = mailer.transporter ? mailer.transporter.mailer : mailer;
+    if (!brevoClient) {
       console.log('OTP email (dev preview):', { officialEmail, otp, referenceId });
+    } else if (!hasSmtpCreds) {
+      console.log('Brevo failed, preview fallback email:', { officialEmail, otp, referenceId });
     }
 
     res.status(200).json({ success: true, referenceId });
