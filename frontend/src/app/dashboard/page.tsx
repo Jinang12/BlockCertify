@@ -13,6 +13,7 @@ import {
 import LogoutButton from "@/components/LogoutButton";
 import ExperienceFooter from "@/components/ExperienceFooter";
 import { getToken } from "@/lib/tokenStorage";
+import IssuerNav from "@/components/IssuerNav";
 
 const unlockedFeatures = [
   {
@@ -71,8 +72,10 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-950">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.18),_rgba(2,6,23,0.95))]" />
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col gap-10 px-6 py-10 lg:px-12">
+      <IssuerNav />
+      <div className="relative">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.18),_rgba(2,6,23,0.95))]" />
+        <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col gap-10 px-6 pb-10 pt-20 lg:px-12">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.4em] text-blue-400">Dashboard</p>
@@ -86,20 +89,52 @@ export default function DashboardPage() {
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/credentials"
+              href="/issuer/issue"
               className="inline-flex items-center gap-2 rounded-2xl border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-white"
             >
-              Configure templates <ArrowUpRight className="h-4 w-4" />
+              Issue credential <ArrowUpRight className="h-4 w-4" />
             </Link>
             <Link
               href="/verifications"
               className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/30"
             >
-              View verification feed
+              Verify PDF feed
+            </Link>
+            <Link
+              href="/revocations"
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-white"
+            >
+              Revoke access
             </Link>
             <LogoutButton />
           </div>
         </header>
+
+        <section className="grid gap-4 rounded-3xl border border-white/10 bg-white/5 p-6 text-white shadow-xl shadow-black/40 lg:grid-cols-3">
+          <article className="rounded-2xl border border-white/10 bg-black/20 p-4 lg:col-span-2">
+            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Unlocked workspace</p>
+            <h2 className="mt-2 text-2xl font-semibold">Your credential fabric is live.</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Jump to issuance, verification, or revocation flows without digging through menus. These quick actions stay
+              pinned for every issuer once authenticated.
+            </p>
+          </article>
+          <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
+            {[
+              { label: "Launch Issuer", href: "/issuer/issue" },
+              { label: "Verify PDFs", href: "/verifications" },
+              { label: "Manage Revocations", href: "/revocations" },
+            ].map((action) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-semibold text-white/90 transition hover:bg-white/20"
+              >
+                {action.label}
+              </Link>
+            ))}
+          </div>
+        </section>
 
         <section className="grid gap-5 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-4 moving-border">
           {stats.map((stat) => (
@@ -169,6 +204,7 @@ export default function DashboardPage() {
           </article>
         </section>
         <ExperienceFooter />
+        </div>
       </div>
     </div>
   );

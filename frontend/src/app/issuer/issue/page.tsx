@@ -20,8 +20,9 @@ import { toCanonicalJson } from '@/lib/canonicalJson';
 import type { JsonValue } from '@/lib/canonicalJson';
 import { postFormData, postJson } from '@/lib/api';
 import { getToken } from '@/lib/tokenStorage';
-import Link from 'next/link';
 import LogoutButton from '@/components/LogoutButton';
+import IssuerNav from '@/components/IssuerNav';
+import ExperienceFooter from '@/components/ExperienceFooter';
 
 const defaultCertificate = {
   certificateId: '',
@@ -76,10 +77,6 @@ export default function IssueCertificatePage() {
   const [status, setStatus] = useState<string | null>(null);
   const [isIssuing, setIsIssuing] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [revokeCertificateId, setRevokeCertificateId] = useState('');
-  const [revokeReason, setRevokeReason] = useState('');
-  const [revocationMessage, setRevocationMessage] = useState<string | null>(null);
-  const [isRevoking, setIsRevoking] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -165,41 +162,12 @@ export default function IssueCertificatePage() {
     }
   };
 
-  const handleRevokeSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setIsRevoking(true);
-    setRevocationMessage(null);
-    const token = getToken();
-    if (!token) {
-      setRevocationMessage('Please sign in to revoke certificates.');
-      setIsRevoking(false);
-      return;
-    }
-
-    if (!revokeCertificateId.trim()) {
-      setRevocationMessage('Provide the certificate ID you want to revoke.');
-      setIsRevoking(false);
-      return;
-    }
-
-    try {
-      await postJson(`/certificates/${encodeURIComponent(revokeCertificateId.trim())}/revoke`, {
-        reason: revokeReason.trim(),
-      }, token);
-      setRevocationMessage('Revocation submitted. The ledger will reflect the new status shortly.');
-      setRevokeCertificateId('');
-      setRevokeReason('');
-    } catch (error) {
-      setRevocationMessage(error instanceof Error ? error.message : 'Failed to revoke certificate.');
-    } finally {
-      setIsRevoking(false);
-    }
-  };
-
   return (
     <div className="issuer-console min-h-screen bg-slate-950">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_rgba(2,6,23,1))]" />
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col gap-8 px-6 py-10">
+      <IssuerNav />
+      <div className="relative">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_rgba(2,6,23,1))]" />
+        <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col gap-8 px-6 pb-12 pt-16">
         <header className="flex flex-wrap items-center justify-between gap-4 text-white">
           <div className="flex items-center gap-4">
             <Shield className="h-8 w-8 text-emerald-300" />
@@ -323,54 +291,8 @@ export default function IssueCertificatePage() {
             <Download className="h-4 w-4 text-sky-300" />
           </div>
         )}
-
-        <section className="mt-6 grid gap-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Revocation control</p>
-              <p className="text-sm text-slate-300">Revoke certificates issued by your company.</p>
-            </div>
-            <Link
-              href="/issuer/login"
-              className="text-xs font-semibold uppercase tracking-[0.4em] text-sky-300 hover:text-white"
-            >
-              Switch account ↗
-            </Link>
-          </div>
-
-          <form className="space-y-4" onSubmit={handleRevokeSubmit}>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Certificate ID</label>
-              <input
-                value={revokeCertificateId}
-                onChange={(e) => setRevokeCertificateId(e.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-red-400 focus:ring-2 focus:ring-red-400/30"
-                placeholder="CERT-2025-0002"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Reason (optional)</label>
-              <textarea
-                value={revokeReason}
-                onChange={(e) => setRevokeReason(e.target.value)}
-                rows={3}
-                className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-red-400 focus:ring-2 focus:ring-red-400/30"
-                placeholder="Suspicious issuance"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={isRevoking}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-rose-500/30 disabled:opacity-60"
-            >
-              {isRevoking ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Revoke certificate'}
-            </button>
-            {revocationMessage && (
-              <p className="text-xs text-amber-300">{revocationMessage}</p>
-            )}
-          </form>
-        </section>
+        <ExperienceFooter />
+        </div>
       </div>
     </div>
   );

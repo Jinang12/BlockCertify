@@ -28,7 +28,7 @@ export default function IssuerLoginPage() {
       if (typeof window !== 'undefined') {
         window.localStorage.setItem('blockcertify_company', JSON.stringify(response.company));
       }
-      router.push('/issuer/issue');
+      router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to login');
     } finally {
