@@ -35,9 +35,30 @@ const fallbackMailer = hasSmtpCreds
 
 const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 
+const parseSender = () => {
+  const raw = process.env.MAIL_FROM || 'no-reply@blockcertify.local';
+  const fallbackName = process.env.MAIL_FROM_NAME || 'BlockCertify';
+  const match = raw.match(/^(.*)<([^>]+)>$/);
+  if (match) {
+    const [, name, email] = match;
+    return {
+      email: email.trim(),
+      name: name.trim().replace(/"/g, '') || fallbackName,
+      display: raw,
+    };
+  }
+
+  return {
+    email: raw.trim().replace(/"/g, ''),
+    name: fallbackName,
+    display: raw,
+  };
+};
+
 const sendOtpEmail = async (email, otp, companyName) => {
-  const senderEmail = process.env.MAIL_FROM || 'no-reply@blockcertify.local';
-  const senderName = process.env.MAIL_FROM_NAME || 'BlockCertify';
+  const sender = parseSender();
+  const senderEmail = sender.email;
+  const senderName = sender.name;
   const subject = 'Verify your organization – BlockCertify';
   const textContent = `Hi${companyName ? ` ${companyName}` : ''}, your verification code is ${otp}. It expires in 10 minutes.`;
   const htmlContent = `<p>Hi${companyName ? ` ${companyName}` : ''},</p><p>Your BlockCertify verification code is <strong>${otp}</strong>.</p><p>This code expires in 10 minutes.</p>`;
@@ -58,7 +79,7 @@ const sendOtpEmail = async (email, otp, companyName) => {
   }
 
   await fallbackMailer.sendMail({
-    from: `${senderName} <${senderEmail}>`,
+    from: sender.display,
     to: email,
     subject,
     text: textContent,
