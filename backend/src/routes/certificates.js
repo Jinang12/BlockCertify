@@ -184,18 +184,35 @@ router.post('/verify/pdf', async (req, res) => {
 
     const buffer = Buffer.isBuffer(pdfFile.data) ? pdfFile.data : Buffer.from(pdfFile.data);
     const pdfHash = crypto.createHash('sha256').update(buffer).digest('hex');
-    const { payload } = await extractPayloadFromPdf(buffer);
 
-    if (!payload || !payload.certificateJson || !payload.signature) {
+    let record = await findCertificateByPdfHash(pdfHash);
+    let payload;
+
+    try {
+      ({ payload } = await extractPayloadFromPdf(buffer));
+    } catch (parseError) {
+      console.warn('Failed to parse embedded payload from PDF bytes:', parseError?.message || parseError);
+      payload = null;
+    }
+
+    let certificateJson = payload?.certificateJson || null;
+    let signature = payload?.signature || null;
+
+    if (!record && certificateJson?.certificateId) {
+      record = await findCertificateById(certificateJson.certificateId);
+    }
+
+    if (!record && (!certificateJson || !signature)) {
       return res.status(400).json({ error: 'Unable to locate embedded certificate payload in PDF' });
     }
 
-    const certificateJson = payload.certificateJson;
-    const signature = payload.signature;
-
-    let record = await findCertificateByPdfHash(pdfHash);
-    if (!record && certificateJson?.certificateId) {
-      record = await findCertificateById(certificateJson.certificateId);
+    if (record) {
+      if (!certificateJson && record.certificate) {
+        certificateJson = record.certificate;
+      }
+      if (!signature && record.signature) {
+        signature = record.signature;
+      }
     }
 
     if (!record) {
@@ -203,6 +220,10 @@ router.post('/verify/pdf', async (req, res) => {
         verdict: 'COUNTERFEIT',
         reason: 'Certificate not found in ledger',
       });
+    }
+
+    if (!certificateJson || !signature) {
+      return res.status(400).json({ error: 'Unable to extract certificate payload for verification' });
     }
 
     const canonical = canonicalizeCertificate(certificateJson);
